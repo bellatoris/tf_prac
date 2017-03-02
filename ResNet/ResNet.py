@@ -3,15 +3,17 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from conv_block import softmax_layer, conv_layer, residual_block
+from conv_block import fc_layer, conv_layer, residual_block
 
 NUM_CLASSES = 10
 IMAGE_SIZE = 32
 CHANNEL = 3
 IMAGE_PIXELS = IMAGE_SIZE * IMAGE_SIZE * CHANNEL
 
+
+# Make ResNet model
 def resnet(inpt, n=110):
-    num_conv = (n - 20) / 12 + 1
+    num_conv = (n - 2) / 3
     layers = []
 
     with tf.variable_scope('conv1'):
@@ -19,7 +21,7 @@ def resnet(inpt, n=110):
         layers.append(conv1)
 
     for i in range(num_conv):
-        with tf.variable_scope('conv2_%d' % (i+1)):
+        with tf.variable_scope('conv2_%d' % i):
             conv2_x = residual_block(layers[-1], 16, False)
             conv2 = residual_block(conv2_x, 16, False)
             layers.append(conv2_x)
@@ -28,17 +30,31 @@ def resnet(inpt, n=110):
         assert conv2.get_shape.as_list()[1:] == [32, 32, 16]
 
     for i in range(num_conv):
-        with tf.variable_scope('conv3_%d' % (i + 1)):
+        with tf.variable_scope('conv3_%d' % i):
             conv3_x = residual_block(layers[-1], 32, False)
             conv3 = residual_block(conv3_x, 32, False)
             layers.append(conv3_x)
             layers.append(conv3)
 
-        assert conv2.get_shape.as_list()[1:] == [16, 16, 32]
+        assert conv3.get_shape.as_list()[1:] == [16, 16, 32]
 
+    for i in range(num_conv):
+        with tf.variable_scope('conv4_%d' % i):
+            conv4_x = residual_block(layers[-1], 64, False)
+            conv4 = residual_block(conv4_x, 64, False)
+            layers.append(conv3_4)
+            layers.append(conv4)
 
-def inference(images):
-    i = 3
+        assert conv4.get_shape.as_list()[1:] == [8, 8, 64]
+
+    with tf.variable_scope('fc'):
+        global_pool = tf.reduce_mean(layers[-1], [1, 2])
+        assert global_pool.get_shape().as_list()[1:] == [64]
+
+        out = fc_layer(global_pool, [64, 10])
+        layers.append(out)
+
+    return layers[-1]
 
 
 def loss(logits, labels):
